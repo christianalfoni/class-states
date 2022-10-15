@@ -10,7 +10,7 @@ export type TPartialMatch<S extends IState, R = any> = {
   _: () => R;
 };
 
-class State<S extends IState> {
+export class States<S extends IState> {
   private _state: S;
   private _listeners: Record<string, Set<(state: S, prevState: S) => void>> =
     {};
