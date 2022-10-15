@@ -1,0 +1,28 @@
+{
+  "name": "class-states",
+  "version": "1.0.0",
+  "description": "Manage async complexity with states",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/christianalfoni/class-states.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/christianalfoni/class-states/issues"
+  },
+  "homepage": "https://github.com/christianalfoni/class-states#readme",
+  "devDependencies": {
+    "typescript": "^4.8.4"
+  }
+}
