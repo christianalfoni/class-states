@@ -29,16 +29,10 @@ export class States<S extends IState> {
         [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
       }[keyof T]
     | U;
-  match() {
+  match(matches) {
     const state = this._state;
-    const matches = arguments[0];
-    const _ = arguments[1];
 
-    if (_) {
-      return (matches[state.state] || _)(state);
-    }
-
-    return matches[state.state](state);
+    return matches[state.state] ? matches[state.state](state) : matches._();
   }
   set(state: S) {
     const prevState = this._state;

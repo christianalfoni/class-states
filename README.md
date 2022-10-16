@@ -11,10 +11,10 @@ type SomeConnectionState =
     state: 'DISCONNECTED'    
   } | {
     state: 'CONNECTING',
-    responsePromise: Promise<string>
+    connectionPromise: Promise<Connection>
   } | {
     state: 'CONNECTED',
-    response: string
+    connection: Connection
   }
 
 class SomeConnection {
@@ -40,6 +40,16 @@ class SomeConnection {
       CONNECTING: ({ responsePromise }) => responsePromise,
       CONNECTED: ({ response }) => response
     })
+  }
+  disconnect() {
+      this.state.matches({
+          CONNECTED: ({ connection }) => {
+              connection.dispose()
+          },
+          _: () => {
+              // Do nothing
+          }
+      })
   }
 }
 ```
