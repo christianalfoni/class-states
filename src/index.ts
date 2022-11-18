@@ -33,12 +33,14 @@ export class States<S extends IState> {
 
     return matches[state.state] ? matches[state.state](state) : matches._();
   }
-  set(state: S) {
+  set<T extends S>(state: T): T {
     const prevState = this._state;
     this._state = state;
     this._listeners[state.state]?.forEach((listener) =>
       listener(state, prevState)
     );
+
+    return state;
   }
   is<T extends S["state"]>(state: T) {
     return this._state.state === state;
