@@ -16,6 +16,9 @@ export class States<S extends IState> {
   constructor(initialState: S) {
     this._state = initialState;
   }
+  get() {
+    return this._state;
+  }
   match<T extends TMatch<S>>(
     matches: T
   ): {
