@@ -24,6 +24,7 @@ class SomeConnection {
         state: 'DISCONNECTED'
     })
     this.state.onTransition((state, prevState) => {})
+    this.state.onTransition('DISCONNECTED', (disconnectedState, prevState) => {})
   }
   async connect() {
     // Exhaustive match

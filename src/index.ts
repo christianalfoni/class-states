@@ -12,8 +12,7 @@ export type TPartialMatch<S extends IState, R = any> = {
 
 export class States<S extends IState> {
   private _state: S;
-  private _listeners: Record<string, Set<(state: S, prevState: S) => void>> =
-    {};
+  private _listeners: Set<(state: S, prevState: S) => void> = new Set();
   constructor(initialState: S) {
     this._state = initialState;
   }
@@ -47,17 +46,29 @@ export class States<S extends IState> {
   onTransition<T extends S["state"]>(
     state: T,
     listener: (state: S extends { state: T } ? S : never, prevState: S) => void
-  ) {
-    let listeners = this._listeners[state];
+  ): () => void;
+  onTransition(listener: (state: S, prevState: S) => void): () => void;
+  onTransition(...args) {
+    let listener: (state: S, prevState: S) => void;
 
-    if (!listeners) {
-      listeners = this._listeners[state] = new Set();
+    if (typeof args[0] === "string" && typeof args[1] === "function") {
+      const state = args[0];
+
+      listener = (currentState, prevState) => {
+        if (currentState.state === state) {
+          args[1](currentState, prevState);
+        }
+      };
+    } else if (typeof args[0] === "function") {
+      listener = args[0];
+    } else {
+      throw new Error("You are giving the wrong arguments");
     }
 
-    listeners.add(listener);
+    this._listeners.add(listener);
 
     return () => {
-      listeners.delete(listener);
+      this._listeners.delete(listener);
     };
   }
 }
