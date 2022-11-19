@@ -39,9 +39,7 @@ export class States<S extends IState> {
   set<T extends S>(state: T): T {
     const prevState = this._state;
     this._state = state;
-    this._listeners[state.state]?.forEach((listener) =>
-      listener(state, prevState)
-    );
+    this._listeners.forEach((listener) => listener(state, prevState));
 
     return state;
   }
