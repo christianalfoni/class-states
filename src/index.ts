@@ -16,6 +16,7 @@ export class States<S extends IState> {
   private _isDisposed = false;
   constructor(initialState: S) {
     this._state = initialState;
+    this.onTransition = this.onTransition.bind(this);
   }
   get() {
     return this._state;
