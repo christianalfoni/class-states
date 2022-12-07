@@ -38,10 +38,6 @@ export class States<S extends IState> {
     return matches[state.state] ? matches[state.state](state) : matches._();
   }
   set<T extends S>(state: T): T {
-    if (this._isDisposed) {
-      throw new Error("This States instance has been disposed");
-    }
-
     const prevState = this._state;
     this._state = state;
     this._listeners.forEach((listener) => listener(state, prevState));
