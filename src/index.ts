@@ -13,6 +13,7 @@ export type TPartialMatch<S extends IState, R = any> = {
 export class States<S extends IState> {
   private _state: S;
   private _listeners: Set<(state: S, prevState: S) => void> = new Set();
+  private _isDisposed = false;
   constructor(initialState: S) {
     this._state = initialState;
   }
@@ -30,13 +31,16 @@ export class States<S extends IState> {
     | {
         [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
       }[keyof T];
-
   match(matches) {
     const state = this._state;
 
     return matches[state.state] ? matches[state.state](state) : matches._();
   }
   set<T extends S>(state: T): T {
+    if (this._isDisposed) {
+      throw new Error("This States instance has been disposed");
+    }
+
     const prevState = this._state;
     this._state = state;
     this._listeners.forEach((listener) => listener(state, prevState));
@@ -52,6 +56,10 @@ export class States<S extends IState> {
   ): () => void;
   onTransition(listener: (state: S, prevState: S) => void): () => void;
   onTransition(...args) {
+    if (this._isDisposed) {
+      throw new Error("This States instance has been disposed");
+    }
+
     let listener: (state: S, prevState: S) => void;
 
     if (typeof args[0] === "string" && typeof args[1] === "function") {
@@ -73,5 +81,9 @@ export class States<S extends IState> {
     return () => {
       this._listeners.delete(listener);
     };
+  }
+  dispose() {
+    this._listeners.clear();
+    this._isDisposed = true;
   }
 }
