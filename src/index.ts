@@ -18,6 +18,9 @@ export class States<S extends IState> {
     this._state = initialState;
     this.onTransition = this.onTransition.bind(this);
   }
+  get isDisposed() {
+    return this._isDisposed;
+  }
   get() {
     return this._state;
   }
@@ -38,6 +41,10 @@ export class States<S extends IState> {
     return matches[state.state] ? matches[state.state](state) : matches._();
   }
   set<T extends S>(state: T): T {
+    if (this._isDisposed) {
+      return;
+    }
+
     const prevState = this._state;
     this._state = state;
     this._listeners.forEach((listener) => listener(state, prevState));
@@ -54,7 +61,7 @@ export class States<S extends IState> {
   onTransition(listener: (state: S, prevState: S) => void): () => void;
   onTransition(...args) {
     if (this._isDisposed) {
-      throw new Error("This States instance has been disposed");
+      return;
     }
 
     let listener: (state: S, prevState: S) => void;
