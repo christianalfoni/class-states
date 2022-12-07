@@ -1,6 +1,6 @@
 {
   "name": "class-states",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Manage async complexity with states",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
