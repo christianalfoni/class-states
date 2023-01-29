@@ -1,5 +1,13 @@
 type IState = { state: string };
 
+export type PickState<S extends IState, T extends S["state"] = never> = [
+  T
+] extends [never]
+  ? S
+  : S extends { state: T }
+  ? S
+  : never;
+
 export type TMatch<S extends IState, R = any> = {
   [SS in S["state"]]: (state: S extends { state: SS } ? S : never) => R;
 };
