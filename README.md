@@ -4,14 +4,16 @@ Manage async complexity with states
 ## Example
 
 ```ts
-import { States } from 'class-states'
+import { States, PickState } from 'class-states'
 
 type SomeConnectionState =
   {
     state: 'DISCONNECTED'    
   } | {
     state: 'CONNECTING',
-    connectionPromise: Promise<Connection>
+    transition: Promise<
+      PickState<SomeConnectionState, 'CONNECTED' | 'DISCONNECTED'>
+    >
   } | {
     state: 'CONNECTED',
     connection: Connection
@@ -26,25 +28,38 @@ class SomeConnection {
     this.state.onTransition((state, prevState) => {})
     this.state.onTransition('DISCONNECTED', (disconnectedState, prevState) => {})
   }
+  private _connect() {
+    return this.state.set({
+      state: 'CONNECTING',
+      transition: someConnectionCreator()
+        .then((connection) => ({
+          state: 'CONNECTED',
+          connection
+        }))
+        .catch(() => ({
+          state: 'DISCONNECTED'
+        }))
+    })
+  }
   async connect() {
-    // Exhaustive match
-    return this.state.matches({
+    // We first narrow down to a possible "CONNECTED" or "DISCONNECTED"
+    // state
+    const connectState =  await this.state.matches({
+      DISCONNECTED: () => this._connect().transition,
+      CONNECTING: ({ transition }) => transition,
+      CONNECTED: (state) => state
+    })
+    
+    // Then we use the narrowed state to evaluate what this method
+    // returns
+    return this.state.matches(connectState, {
+      CONNECTED: ({ connection }) => connection,
       DISCONNECTED: () => {
-        const connectionPromise = Promise.resolve('$SomeConnection')
-        
-        this.state.set({
-          state: 'CONNECTING',
-          connectionPromise
-        })
-        
-        return connectionPromise
-      },
-      CONNECTING: ({ connectionPromise }) => connectionPromise,
-      CONNECTED: ({ connection }) => connection
+        throw new Error("Could not connect")
+      }
     })
   }
   disconnect() {
-      // Exhaustive partial match
       this.state.matches({
           CONNECTED: ({ connection }) => {
               connection.dispose()
