@@ -57,7 +57,7 @@ export class States<S extends IState> {
         [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
       }[keyof T];
   match(...args) {
-    const matches = args[0] || args[1];
+    const matches = args[1] || args[0];
 
     const state = args.length === 2 ? args[0] : this._state;
 
