@@ -38,11 +38,16 @@ export class States<S extends IState> {
     [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
   }[keyof T];
   match<T extends TPartialMatch<S>>(
-    matches: T
-  ):
-    | {
-        [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
-      }[keyof T];
+    matches: T & {
+      [K in keyof T]: K extends S["state"]
+        ? T[K]
+        : K extends "_"
+        ? T[K]
+        : never;
+    }
+  ): {
+    [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
+  }[keyof T];
   match<U extends S, T extends TMatch<U>>(
     state: U,
     matches: T
