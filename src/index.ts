@@ -54,7 +54,7 @@ export class States<S extends IState> {
   ): {
     [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
   }[keyof T];
-  match<U extends S, T extends TPartialMatch<U, R>, R = any>(
+  match<U extends S, T extends TPartialMatch<U>>(
     state: U,
     matches: T
   ):
