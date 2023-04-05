@@ -6,68 +6,68 @@ Manage async complexity with states
 ```ts
 import { States, PickState } from 'class-states'
 
-type SomeConnectionState =
+type SomeState =
   {
-    state: 'DISCONNECTED'    
+    status: 'DISCONNECTED'    
   } | {
-    state: 'CONNECTING',
-    transition: Promise<
-      PickState<SomeConnectionState, 'CONNECTED' | 'DISCONNECTED'>
-    >
-  } | {
-    state: 'CONNECTED',
+    status: 'CONNECTED',
     connection: Connection
+  }
+  
+type SomeTransitionState = {
+    status: 'CONNECTING',
   }
 
 class SomeConnection {
-  state: States<SomeConnectionState>
+  state: States<SomeState, SomeTransitionState>
   constructor() {
     this.state = new States({
-        state: 'DISCONNECTED'
+        status: 'DISCONNECTED'
     })
     this.state.onTransition((state, prevState) => {})
-    this.state.onTransition('DISCONNECTED', (disconnectedState, prevState) => {})
   }
   private _connect() {
-    return this.state.set({
-      state: 'CONNECTING',
-      transition: someConnectionCreator()
-        .then((connection) => ({
-          state: 'CONNECTED',
+    return this.state.transition({
+      status: 'CONNECTING',
+    }, async () => {
+      try {
+        const connection = someConnectionCreator()
+        
+        return {
+          status: 'CONNECTED',
           connection
-        }))
-        .catch(() => ({
-          state: 'DISCONNECTED'
-        }))
-    })
-  }
-  async connect() {
-    // We first narrow down to a possible "CONNECTED" or "DISCONNECTED"
-    // state
-    const connectState =  await this.state.matches({
-      DISCONNECTED: () => this._connect().transition,
-      CONNECTING: ({ transition }) => transition,
-      CONNECTED: (state) => state
-    })
-    
-    // Then we use the narrowed state to evaluate what this method
-    // returns
-    return this.state.matches(connectState, {
-      CONNECTED: ({ connection }) => connection,
-      DISCONNECTED: () => {
-        throw new Error("Could not connect")
+        }
+      } catch {
+        return {
+          status: 'DISCONNECTED'
+        }
       }
     })
   }
-  disconnect() {
-      this.state.matches({
-          CONNECTED: ({ connection }) => {
-              connection.dispose()
-          },
-          _: () => {
-              // Do nothing
-          }
-      })
+  async connect() {
+    return this.state.awaitTransitioniasync (state) => {
+      if (state.status === 'DISCONNECTED') {
+        state = await this._connect()
+      }
+      
+      switch (state.status) {
+        case 'CONNECTED': {
+          return state.connection
+        }
+        case 'DISCONNECTED': {
+          throw new Error("Unable to connect)
+        }
+      }
+    }  })
+    
+
+  }
+  async disconnect() {
+    return this.state.resolve((state) => {
+      if (state.status === 'CONNECTED') {
+        state.connection.dispose()
+      }
+    })   })
   }
 }
 ```
@@ -81,10 +81,12 @@ When you work with complex asynchronous code you have some challenges:
 
 3. Values can often also be `null` or `undefined` as they are asynchronously initialized
 
-`class-states` gives you a tiny abstraction of explicit states and a `matches` utility which:
+`class-states` gives you a tiny abstraction of explicit states which:
 
 1. Forces you to evaluate how any function/method runs when consuming the state of the class
 
-2. Explicit single states instead of manually orchestrating multiple flags
+2. Explicit states instead of manually orchestrating multiple flags
 
 3. Values tied to states are consumed on the specific state, avoiding `null` and `undefined` unions
+
+4. Async transition of states are safely resolved

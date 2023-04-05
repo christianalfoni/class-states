@@ -1,6 +1,6 @@
-type IState = { state: string };
+type IState = { status: string };
 
-export type PickState<S extends IState, T extends S["state"] = never> = [
+export type PickState<S extends IState, T extends S["status"] = never> = [
   T
 ] extends [never]
   ? S
@@ -8,20 +8,11 @@ export type PickState<S extends IState, T extends S["state"] = never> = [
   ? S
   : never;
 
-export type TMatch<S extends IState, R = any> = {
-  [SS in S["state"]]: (state: S extends { state: SS } ? S : never) => R;
-};
-
-export type TPartialMatch<S extends IState, R = any> = {
-  [SS in S["state"]]?: (state: S extends { state: SS } ? S : never) => R;
-} & {
-  _: () => R;
-};
-
-export class States<S extends IState> {
-  private _state: S;
-  private _listeners: Set<(state: S, prevState: S) => void> = new Set();
+export class States<S extends IState, U extends IState> {
+  private _state: S | U;
+  private _listeners: Set<(state: S | U, prevState: S | U) => void> = new Set();
   private _isDisposed = false;
+  private _transition?: Promise<S>;
   constructor(initialState: S) {
     this._state = initialState;
     this.onTransition = this.onTransition.bind(this);
@@ -32,43 +23,8 @@ export class States<S extends IState> {
   get() {
     return this._state;
   }
-  match<T extends TMatch<S>>(
-    matches: T
-  ): {
-    [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
-  }[keyof T];
-  match<T extends TPartialMatch<S>>(
-    matches: T & {
-      [K in keyof T]: K extends S["state"]
-        ? T[K]
-        : K extends "_"
-        ? T[K]
-        : never;
-    }
-  ): {
-    [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
-  }[keyof T];
-  match<U extends S, T extends TMatch<U>>(
-    state: U,
-    matches: T
-  ): {
-    [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
-  }[keyof T];
-  match<U extends S, T extends TPartialMatch<U>>(
-    state: U,
-    matches: T
-  ):
-    | {
-        [K in keyof T]: T[K] extends (...args: any[]) => infer R ? R : never;
-      }[keyof T];
-  match(...args) {
-    const matches = args[1] || args[0];
 
-    const state = args.length === 2 ? args[0] : this._state;
-
-    return matches[state.state] ? matches[state.state](state) : matches._();
-  }
-  set<T extends S>(state: T): T {
+  set<T extends S | U>(state: T): T {
     if (this._isDisposed) {
       return;
     }
@@ -79,33 +35,23 @@ export class States<S extends IState> {
 
     return state;
   }
-  is<T extends S["state"]>(state: T) {
-    return this._state.state === state;
-  }
-  onTransition<T extends S["state"]>(
+  transition<T extends U, P extends () => Promise<S>>(
     state: T,
-    listener: (state: S extends { state: T } ? S : never, prevState: S) => void
-  ): () => void;
-  onTransition(listener: (state: S, prevState: S) => void): () => void;
-  onTransition(...args) {
+    transition: P
+  ): ReturnType<P> {
+    this.set(state);
+
+    return (this._transition = transition().then((newState) => {
+      delete this._transition;
+
+      this.set(newState);
+
+      return newState;
+    }) as ReturnType<P>);
+  }
+  onTransition(listener: (state: S, prevState: S) => void): () => void {
     if (this._isDisposed) {
       return;
-    }
-
-    let listener: (state: S, prevState: S) => void;
-
-    if (typeof args[0] === "string" && typeof args[1] === "function") {
-      const state = args[0];
-
-      listener = (currentState, prevState) => {
-        if (currentState.state === state) {
-          args[1](currentState, prevState);
-        }
-      };
-    } else if (typeof args[0] === "function") {
-      listener = args[0];
-    } else {
-      throw new Error("You are giving the wrong arguments");
     }
 
     this._listeners.add(listener);
@@ -114,6 +60,13 @@ export class States<S extends IState> {
       this._listeners.delete(listener);
     };
   }
+  async awaitTransition<T>(cb: (state: S) => T): Promise<T> {
+    const currentState = await (this._transition ||
+      Promise.resolve(this._state as S));
+
+    return cb(currentState);
+  }
+
   dispose() {
     this._listeners.clear();
     this._isDisposed = true;
