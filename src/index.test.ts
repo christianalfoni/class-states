@@ -3,6 +3,7 @@ import { States } from ".";
 type TestState =
   | {
       status: "CONNECTED";
+      ref: number;
     }
   | {
       status: "DISCONNECTED";
@@ -25,9 +26,9 @@ describe("States", () => {
       status: "DISCONNECTED",
     });
 
-    states.set({ status: "CONNECTED" });
+    states.set({ status: "CONNECTED", ref: 0 });
 
-    expect(states.get()).toEqual({ status: "CONNECTED" });
+    expect(states.get()).toEqual({ status: "CONNECTED", ref: 0 });
   });
   it("should allow transitioning to new state", async () => {
     const states = new States<TestState, TestTransitionState>({
@@ -36,32 +37,64 @@ describe("States", () => {
 
     const transition = states.transition(
       { status: "CONNECTING" },
-      async () => ({ status: "CONNECTED" })
+      async () => ({ status: "CONNECTED", ref: 0 })
     );
 
     expect(states.get()).toEqual({ status: "CONNECTING" });
     await transition;
-    expect(states.get()).toEqual({ status: "CONNECTED" });
+    expect(states.get()).toEqual({ status: "CONNECTED", ref: 0 });
   });
-  it("should wait transition to new state", async () => {
+  it("should ignore same transition", async () => {
     const states = new States<TestState, TestTransitionState>({
       status: "DISCONNECTED",
     });
 
     const transition = states.transition(
       { status: "CONNECTING" },
-      async () => ({ status: "CONNECTED" })
+      async () => ({ status: "CONNECTED", ref: 0 })
     );
 
     expect(states.get()).toEqual({ status: "CONNECTING" });
-    const waitTransition = states.awaitTransition((state) => {
-      expect(state).toEqual({ status: "CONNECTED" });
-
-      return "OK";
+    const secondTransition = states.transition(
+      { status: "CONNECTING" },
+      async () => ({
+        status: "CONNECTED",
+        ref: 1,
+      })
+    );
+    const resultA = await transition;
+    expect(resultA).toEqual({ status: "CONNECTED", ref: 0 });
+    const resultB = await secondTransition;
+    expect(resultB).toEqual({ status: "CONNECTED", ref: 0 });
+  });
+  it("should wait for current transitions", async () => {
+    const states = new States<TestState, TestTransitionState>({
+      status: "DISCONNECTED",
     });
-    await transition;
-    expect(states.get()).toEqual({ status: "CONNECTED" });
-    const result = await waitTransition;
-    expect(result).toBe("OK");
+
+    states.transition({ status: "CONNECTING" }, async () => ({
+      status: "CONNECTED",
+      ref: 0,
+    }));
+
+    const state = await states.whenTransitioned();
+
+    expect(state).toEqual({ status: "CONNECTED", ref: 0 });
+  });
+  it("should throw if setting state during transition", async () => {
+    const states = new States<TestState, TestTransitionState>({
+      status: "DISCONNECTED",
+    });
+
+    states.transition({ status: "CONNECTING" }, async () => ({
+      status: "CONNECTED",
+      ref: 0,
+    }));
+
+    expect(() =>
+      states.set({
+        status: "DISCONNECTED",
+      })
+    ).toThrow();
   });
 });

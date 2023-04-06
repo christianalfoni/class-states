@@ -12,7 +12,10 @@ export class States<S extends IState, U extends IState> {
   private _state: S | U;
   private _listeners: Set<(state: S | U, prevState: S | U) => void> = new Set();
   private _isDisposed = false;
-  private _transition?: Promise<S>;
+  private _transition?: {
+    state: U;
+    promise: Promise<S>;
+  };
   constructor(initialState: S) {
     this._state = initialState;
     this.onTransition = this.onTransition.bind(this);
@@ -23,10 +26,16 @@ export class States<S extends IState, U extends IState> {
   get() {
     return this._state;
   }
-
   set<T extends S | U>(state: T): T {
     if (this._isDisposed) {
       return;
+    }
+
+    if (this._transition) {
+      throw new Error(
+        "You can not set a new state during transition " +
+          this._transition.state.status
+      );
     }
 
     const prevState = this._state;
@@ -35,19 +44,32 @@ export class States<S extends IState, U extends IState> {
 
     return state;
   }
-  transition<T extends U, P extends () => Promise<S>>(
+  async transition<T extends U, P extends () => Promise<S>>(
     state: T,
     transition: P
-  ): ReturnType<P> {
+  ) {
+    if (this._transition?.state.status === state.status) {
+      return this._transition.promise as ReturnType<P>;
+    }
+
+    if (this._transition) {
+      await this._transition.promise;
+    }
+
     this.set(state);
 
-    return (this._transition = transition().then((newState) => {
-      delete this._transition;
+    this._transition = {
+      state,
+      promise: transition().then((newState) => {
+        delete this._transition;
 
-      this.set(newState);
+        this.set(newState);
 
-      return newState;
-    }) as ReturnType<P>);
+        return newState;
+      }),
+    };
+
+    return this._transition.promise as ReturnType<P>;
   }
   onTransition(listener: (state: S, prevState: S) => void): () => void {
     if (this._isDisposed) {
@@ -60,13 +82,13 @@ export class States<S extends IState, U extends IState> {
       this._listeners.delete(listener);
     };
   }
-  async awaitTransition<T>(cb: (state: S) => T): Promise<T> {
-    const currentState = await (this._transition ||
-      Promise.resolve(this._state as S));
-
-    return cb(currentState);
+  async whenTransitioned() {
+    if (this._transition) {
+      return this._transition.promise.then(() => this._state);
+    } else {
+      return this._state;
+    }
   }
-
   dispose() {
     this._listeners.clear();
     this._isDisposed = true;
