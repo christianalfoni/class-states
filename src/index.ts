@@ -23,7 +23,7 @@ export class States<S extends IState, U extends IState> {
   get isDisposed() {
     return this._isDisposed;
   }
-  async resolve() {
+  async resolve(): Promise<S> {
     const evaluate = () => {
       // When a transition is running we wait until it resolves
       if (this._transition) {
