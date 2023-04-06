@@ -82,7 +82,7 @@ export class States<S extends IState, U extends IState> {
 
     return this._transition.promise as ReturnType<P>;
   }
-  onTransition(listener: (state: S, prevState: S) => void): () => void {
+  onTransition(listener: (state: S | U, prevState: S | U) => void): () => void {
     if (this._isDisposed) {
       return;
     }
