@@ -23,6 +23,20 @@ export class States<S extends IState, U extends IState> {
   get isDisposed() {
     return this._isDisposed;
   }
+  async resolve() {
+    const evaluate = () => {
+      // When a transition is running we wait until it resolves
+      if (this._transition) {
+        // When a transition resolves, it might cause a new transition to happen,
+        // so we keep waiting until all transitions are resolved
+        return this._transition.promise.then(evaluate) as Promise<S>;
+      } else {
+        return this._state as S;
+      }
+    };
+
+    return evaluate();
+  }
   get() {
     return this._state;
   }
@@ -34,7 +48,8 @@ export class States<S extends IState, U extends IState> {
     if (this._transition) {
       throw new Error(
         "You can not set a new state during transition " +
-          this._transition.state.status
+          this._transition.state.status +
+          ", make sure you resolve the state first"
       );
     }
 
@@ -48,12 +63,8 @@ export class States<S extends IState, U extends IState> {
     state: T,
     transition: P
   ) {
-    if (this._transition?.state.status === state.status) {
-      return this._transition.promise as ReturnType<P>;
-    }
-
-    if (this._transition) {
-      await this._transition.promise;
+    if (this._isDisposed) {
+      return;
     }
 
     this.set(state);
@@ -81,13 +92,6 @@ export class States<S extends IState, U extends IState> {
     return () => {
       this._listeners.delete(listener);
     };
-  }
-  async whenTransitioned() {
-    if (this._transition) {
-      return this._transition.promise.then(() => this._state);
-    } else {
-      return this._state;
-    }
   }
   dispose() {
     this._listeners.clear();
