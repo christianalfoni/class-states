@@ -6,85 +6,84 @@ Manage async complexity with states
 ```ts
 import { States, PickState } from 'class-states'
 
-type SomeConnectionState =
+type SomeState =
   {
-    state: 'DISCONNECTED'    
+    status: 'DISCONNECTED'    
   } | {
-    state: 'CONNECTING',
-    transition: Promise<
-      PickState<SomeConnectionState, 'CONNECTED' | 'DISCONNECTED'>
-    >
-  } | {
-    state: 'CONNECTED',
+    status: 'CONNECTED',
     connection: Connection
+  }
+  
+type SomeTransitionState = {
+    status: 'CONNECTING',
   }
 
 class SomeConnection {
-  state: States<SomeConnectionState>
-  constructor() {
-    this.state = new States({
-        state: 'DISCONNECTED'
-    })
-    this.state.onTransition((state, prevState) => {})
-    this.state.onTransition('DISCONNECTED', (disconnectedState, prevState) => {})
-  }
-  private _connect() {
-    return this.state.set({
-      state: 'CONNECTING',
-      transition: someConnectionCreator()
-        .then((connection) => ({
-          state: 'CONNECTED',
-          connection
-        }))
-        .catch(() => ({
-          state: 'DISCONNECTED'
-        }))
-    })
-  }
+  private state = new States<SomeState, SomeTransitionState>({
+    status: 'DISCONNECTED'
+  })
+  onChange = this.state.onTransition
+
   async connect() {
-    // We first narrow down to a possible "CONNECTED" or "DISCONNECTED"
-    // state
-    const connectState =  await this.state.matches({
-      DISCONNECTED: () => this._connect().transition,
-      CONNECTING: ({ transition }) => transition,
-      CONNECTED: (state) => state
-    })
+    let state = await this.state.resolve()
     
-    // Then we use the narrowed state to evaluate what this method
-    // returns
-    return this.state.matches(connectState, {
-      CONNECTED: ({ connection }) => connection,
-      DISCONNECTED: () => {
-        throw new Error("Could not connect")
-      }
-    })
-  }
-  disconnect() {
-      this.state.matches({
-          CONNECTED: ({ connection }) => {
-              connection.dispose()
-          },
-          _: () => {
-              // Do nothing
+    if (state.status === 'DISCONNECTED') {
+      state = await this.state.transition({
+        status: 'CONNECTING',
+      }, async () => {
+        try {
+          const connection = someConnectionCreator()
+          
+          return {
+            status: 'CONNECTED',
+            connection
           }
+        } catch {
+          return {
+            status: 'DISCONNECTED'
+          }
+        }
+      })  
+    }
+    
+    switch (state.status) {
+      case 'CONNECTED': {
+        return state.connection
+      }
+      case 'DISCONNECTED': {
+        throw new Error("Unable to connect)
+      }
+    }})
+
+  }
+const state = 
+   await this.state.resolvenTransitionget (state.status === 'CONNECTED') {
+      state.connection.dispose()
+      
+/ This would throw if transitions where in play
       })
+    }  f (state.stat
+ }
+    })   })
   }
 }
 ```
 
+- The `onChange` emitter will emit whenever we transition into any state
+- `connect` can be called multiple times, also during a transition. The first call starts the transition and any subsequent calls will wait until the first trantition resolves. If a subsequent call starts the transition again and pending subsequent calls will now be waiting for the new transition
+- `disconnect` ensures we only disconnect when we have settled to a `CONNECTED` state
+
 ## Why?
 When you work with complex asynchronous code you have some challenges:
 
-1. Async function/method calls can be called when they are already running, which is easy to ignore or forget to evaluate
+1. Async function/method calls can be called when they are already running, which is easy to ignore or forget to evaluat, creating race conditionse
 
 2. You have multiple flags that has a relationship (isConnecting, isConnected), but needs to be manually orchestrated, risking invalid states
 
-3. Values can often also be `null` or `undefined` as they are asynchronously initialized
 
-`class-states` gives you a tiny abstraction of explicit states and a `matches` utility which:
+4. Mutex to queue async calls, though will not prevent unncessarily firing async flows
+4. You have multiple event emitters for different states3. Valuesare often defined ase `null` or `undefined` as they 
+are asynchronously initialize, creating weird null checks
+d
 
-1. Forces you to evaluate how any function/method runs when consuming the state of the class
-
-2. Explicit single states instead of manually orchestrating multiple flags
-
-3. Values tied to states are consumed on the specific state, avoiding `null` and `undefined` unions
+clPrevents rersolves all these challenges with a minimal and explicit API surface. 
