@@ -53,18 +53,18 @@ class SomeConnection {
       case 'DISCONNECTED': {
         throw new Error("Unable to connect)
       }
-    }})
-
+    }
   }
-const state = 
-   await this.state.resolvenTransitionget (state.status === 'CONNECTED') {
+  
+  async disconnect() {
+    let state = await this.state.resolve()
+    
+    if (state.status === 'CONNECTED') {
       state.connection.dispose()
-      
-/ This would throw if transitions where in play
+      this.state.set({
+        status: 'DISCONNECTED'
       })
-    }  f (state.stat
- }
-    })   })
+    }
   }
 }
 ```
